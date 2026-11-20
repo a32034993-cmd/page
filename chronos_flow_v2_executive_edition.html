@@ -157,6 +157,13 @@
       gap: 12px;
     }
 
+    .cloud-sync-status {
+      color: var(--text-dim);
+      font-size: 0.72rem;
+      max-width: 120px;
+      text-align: right;
+    }
+
     .brand-logo {
       width: 32px;
       height: 32px;
@@ -1075,6 +1082,8 @@
       </div>
 
       <div class="header-controls">
+        <span class="cloud-sync-status" id="cloud-sync-status" aria-live="polite">Cloud sync unavailable in file mode</span>
+        <button class="btn" id="btn-cloud-sync" type="button" disabled>Connect Google</button>
         <button class="btn btn-icon" id="btn-cmd-palette" title="Command Palette (Ctrl+K / ⌘K)">
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </button>
@@ -1529,8 +1538,16 @@
 
     function saveState() {
       localStorage.setItem("chronos_v2_exec_state", JSON.stringify(AppState));
+      window.FirebaseCloudSync?.save(AppState);
       renderApp();
     }
+
+    window.applyCloudState = (state) => {
+      AppState = state;
+      localStorage.setItem("chronos_v2_exec_state", JSON.stringify(AppState));
+      renderApp();
+    };
+    window.getAppState = () => AppState;
 
     /* Helper Translation Function */
     function t(key) {
@@ -2061,6 +2078,7 @@
     document.getElementById("scratchpad-text").addEventListener("input", (e) => {
       AppState.scratchpad = e.target.value;
       localStorage.setItem("chronos_v2_exec_state", JSON.stringify(AppState));
+      window.FirebaseCloudSync?.save(AppState);
     });
 
     // Web Audio Toggle
@@ -2121,5 +2139,160 @@
     // Initial Launch
     renderApp();
   </script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+    import {
+      GoogleAuthProvider,
+      getAuth,
+      onAuthStateChanged,
+      signInWithPopup,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+    import {
+      doc,
+      getDoc,
+      getFirestore,
+      onSnapshot,
+      serverTimestamp,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCeJDQ9XbhfKD8_6r1PQgNIaetX3eVY5xA",
+      authDomain: "project-2081971449067615714.firebaseapp.com",
+      projectId: "project-2081971449067615714",
+      storageBucket: "project-2081971449067615714.firebasestorage.app",
+      messagingSenderId: "593295243458",
+      appId: "1:593295243458:web:ffc517e99fd9c4a6be235b",
+      measurementId: "G-ZSVMM7PFJ9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+    const syncButton = document.getElementById("btn-cloud-sync");
+    const syncStatus = document.getElementById("cloud-sync-status");
+    let currentUser = null;
+    let syncEnabled = false;
+    let stopListening = null;
+    let saveTimer = null;
+    let writeQueue = Promise.resolve();
+
+    function setStatus(message) {
+      syncStatus.textContent = message;
+    }
+
+    function stateRef(uid) {
+      return doc(db, "users", uid, "appState", "current");
+    }
+
+    async function writeState(state) {
+      if (!currentUser || !syncEnabled) return;
+      const serialized = JSON.stringify(state);
+      if (serialized.length > 700000) {
+        setStatus("Cloud sync paused: app data is too large");
+        return;
+      }
+      writeQueue = writeQueue
+        .catch(() => {})
+        .then(() => setDoc(stateRef(currentUser.uid), {
+          payload: serialized,
+          updatedAt: serverTimestamp()
+        }));
+      try {
+        await writeQueue;
+        setStatus(`Synced as ${currentUser.displayName || currentUser.email || "Google user"}`);
+      } catch (error) {
+        console.error("Firebase cloud sync failed:", error);
+        setStatus("Cloud sync error; changes remain on this device");
+      }
+    }
+
+    async function enableSync() {
+      if (!currentUser) return;
+      const reference = stateRef(currentUser.uid);
+      try {
+        const snapshot = await getDoc(reference);
+        if (snapshot.exists()) {
+          const remoteState = JSON.parse(snapshot.data().payload);
+          if (!confirm("A cloud copy already exists. Load it and replace this browser's saved app data?")) return;
+          window.applyCloudState(remoteState);
+          syncEnabled = true;
+          syncButton.textContent = "Sign out";
+          setStatus(`Sync enabled for ${currentUser.email || "Google account"}`);
+        } else {
+          if (!confirm("Enable cloud sync? This uploads this browser's schedules, tasks, preferences, and scratchpad to your private Firebase account.")) return;
+          syncEnabled = true;
+          syncButton.textContent = "Sign out";
+          await writeState(window.getAppState());
+        }
+        stopListening?.();
+        stopListening = onSnapshot(reference, (cloudSnapshot) => {
+          if (!cloudSnapshot.exists()) return;
+          try {
+            window.applyCloudState(JSON.parse(cloudSnapshot.data().payload));
+            setStatus(`Synced as ${currentUser?.displayName || currentUser?.email || "Google user"}`);
+          } catch (error) {
+            console.error("Could not read Firebase app state:", error);
+            setStatus("Cloud data could not be read; local data is unchanged");
+          }
+        }, (error) => {
+          console.error("Firebase sync listener failed:", error);
+          setStatus("Cloud sync error; changes remain on this device");
+        });
+      } catch (error) {
+        console.error("Could not enable Firebase sync:", error);
+        setStatus("Could not connect to Firestore; local data is unchanged");
+      }
+    }
+
+    syncButton.disabled = false;
+    syncButton.addEventListener("click", async () => {
+      if (currentUser) {
+        if (syncEnabled) {
+          await signOut(auth);
+        } else {
+          await enableSync();
+        }
+        return;
+      }
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error("Firebase sign-in failed:", error);
+        if (error.code === "auth/operation-not-allowed") {
+          setStatus("Enable Google sign-in in Firebase Authentication first");
+        } else if (error.code === "auth/unauthorized-domain") {
+          setStatus("Add this site to Firebase's authorized domains");
+        } else {
+          setStatus("Google sign-in failed; local data is unchanged");
+        }
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (!user) {
+        syncEnabled = false;
+        stopListening?.();
+        stopListening = null;
+        syncButton.textContent = "Connect Google";
+        setStatus(location.protocol === "file:" ? "Use HTTPS or localhost for Firebase" : "Local storage only");
+      } else {
+        syncButton.textContent = syncEnabled ? "Sign out" : "Enable cloud sync";
+        setStatus(`Signed in as ${user.email || "Google account"}; sync is off`);
+      }
+    });
+
+    window.FirebaseCloudSync = {
+      save(state) {
+        if (!currentUser || !syncEnabled) return;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => writeState(state), 500);
+      }
+    };
+  </script>
 </body>
 </html>
+
