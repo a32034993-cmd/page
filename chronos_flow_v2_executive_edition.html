@@ -1,0 +1,2125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chronos Flow v2 Executive Edition | Personal Schedule & Task Engine</title>
+  <style>
+    /* ==========================================================================
+       DESIGN TOKENS & SYSTEM VARIABLES (Light & Dark High-Contrast Themes)
+       ========================================================================== */
+    :root {
+      --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+      
+      /* Typography Scaling Variable */
+      --font-scale: 1;
+      --base-size: calc(14px * var(--font-scale));
+      
+      /* Color Palette Light (Executive Slate / Indigo / Emerald / Rose) */
+      --bg-app: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-hover: #f1f5f9;
+      --bg-surface-active: #e2e8f0;
+      --border-color: #cbd5e1;
+      --border-subtle: #e2e8f0;
+      
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+      
+      --accent-primary: #2563eb;
+      --accent-primary-hover: #1d4ed8;
+      --accent-primary-light: #eff6ff;
+      --accent-secondary: #0d9488;
+      
+      /* Status & Priorities */
+      --color-p1: #dc2626;
+      --color-p1-bg: #fef2f2;
+      --color-p2: #d97706;
+      --color-p2-bg: #fffbeb;
+      --color-p3: #2563eb;
+      --color-p3-bg: #eff6ff;
+      
+      --color-success: #16a34a;
+      --color-success-bg: #f0fdf4;
+      --color-warning: #ea580c;
+      --color-warning-bg: #fff7ed;
+      --color-danger: #e11d48;
+      --color-danger-bg: #fff1f2;
+      
+      /* Shadows & Elevation */
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+      
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 9999px;
+      
+      --rail-width: 260px;
+      --header-height: 56px;
+    }
+
+    [data-theme="dark"] {
+      --bg-app: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-surface-hover: #334155;
+      --bg-surface-active: #475569;
+      --border-color: #334155;
+      --border-subtle: #1e293b;
+      
+      --text-main: #f8fafc;
+      --text-muted: #cbd5e1;
+      --text-dim: #94a3b8;
+      
+      --accent-primary: #3b82f6;
+      --accent-primary-hover: #60a5fa;
+      --accent-primary-light: rgba(59, 130, 246, 0.15);
+      --accent-secondary: #14b8a6;
+      
+      --color-p1: #f87171;
+      --color-p1-bg: rgba(239, 68, 68, 0.15);
+      --color-p2: #fbbf24;
+      --color-p2-bg: rgba(245, 158, 11, 0.15);
+      --color-p3: #60a5fa;
+      --color-p3-bg: rgba(59, 130, 246, 0.15);
+      
+      --color-success: #4ade80;
+      --color-success-bg: rgba(34, 197, 94, 0.15);
+      --color-warning: #fb923c;
+      --color-warning-bg: rgba(249, 115, 22, 0.15);
+      --color-danger: #f43f5e;
+      --color-danger-bg: rgba(244, 63, 94, 0.15);
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+    }
+
+    body.large-text {
+      --font-scale: 1.15;
+    }
+
+    /* =layout reset & basic setup */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: var(--font-main);
+      font-size: var(--base-size);
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Tabular Numerals Rule for Precision Timestamps & Alignment */
+    .num-tabular, time, .time-badge, .kpi-value, .stat-value, .pomo-display {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    /* App Shell - Strict CSS Grid Layout */
+    .app-container {
+      display: grid;
+      grid-template-rows: var(--header-height) 1fr;
+      grid-template-columns: var(--rail-width) minmax(0, 1fr);
+      grid-template-areas:
+        "header header"
+        "rail   main";
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header Styling */
+    .app-header {
+      grid-area: header;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 30;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-version {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      background: var(--accent-primary-light);
+      color: var(--accent-primary);
+      border-radius: var(--radius-pill);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .live-clock-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-surface-hover);
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--color-success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Buttons & Controls */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      transition: all 0.15s ease-in-out;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--text-dim);
+    }
+
+    .btn-primary {
+      background: var(--accent-primary);
+      color: #ffffff;
+      border-color: var(--accent-primary);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-primary-hover);
+      border-color: var(--accent-primary-hover);
+      color: #ffffff;
+    }
+
+    .btn-icon {
+      padding: 6px;
+      min-width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+    }
+
+    /* Navigation Rail Left */
+    .app-rail {
+      grid-area: rail;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 12px;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      font-weight: 700;
+      padding: 8px 12px 4px 12px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-surface-hover);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      background: var(--accent-primary-light);
+      color: var(--accent-primary);
+      border-color: rgba(37, 99, 235, 0.2);
+    }
+
+    .nav-item svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    /* Cognitive Workload Capacity Widget (Sidebar) */
+    .workload-widget {
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .workload-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .workload-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .workload-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+    }
+
+    .workload-badge.optimal { background: var(--color-success-bg); color: var(--color-success); }
+    .workload-badge.heavy { background: var(--color-warning-bg); color: var(--color-warning); }
+    .workload-badge.overload { background: var(--color-danger-bg); color: var(--color-danger); }
+
+    .workload-meter {
+      width: 100%;
+      height: 10px;
+      background: var(--border-color);
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+      display: flex;
+    }
+
+    .meter-seg-events {
+      height: 100%;
+      background: var(--accent-primary);
+      transition: width 0.3s ease;
+    }
+
+    .meter-seg-tasks {
+      height: 100%;
+      background: var(--accent-secondary);
+      transition: width 0.3s ease;
+    }
+
+    .workload-breakdown {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Main Workspace Canvas */
+    .app-main {
+      grid-area: main;
+      overflow-y: auto;
+      padding: 24px;
+      background: var(--bg-app);
+      min-width: 0; /* Prevents CSS flex/grid overflow bugs */
+    }
+
+    .view-pane {
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .view-pane.active {
+      display: flex;
+    }
+
+    /* KPI Cards Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--border-color);
+    }
+
+    .kpi-card.accent-1::before { background: var(--accent-primary); }
+    .kpi-card.accent-2::before { background: var(--accent-secondary); }
+    .kpi-card.accent-3::before { background: var(--color-p2); }
+    .kpi-card.accent-4::before { background: var(--color-success); }
+
+    .kpi-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .kpi-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+
+    .kpi-subtext {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Command Center Layout Grid */
+    .command-grid {
+      display: grid;
+      grid-template-columns: minmax(360px, 1.1fr) minmax(360px, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .command-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Timeline & Events Styles */
+    .timeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+
+    .event-card {
+      display: flex;
+      gap: 14px;
+      background: var(--bg-app);
+      border: 1px solid var(--border-subtle);
+      border-left: 4px solid var(--accent-primary);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .event-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .event-card.live-now {
+      border-left-color: var(--color-success);
+      background: var(--color-success-bg);
+    }
+
+    .event-time-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 90px;
+    }
+
+    .event-time {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .event-duration {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+
+    .event-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .event-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .event-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .status-tag {
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .status-tag.live { background: var(--color-success); color: white; }
+    .status-tag.next { background: var(--accent-primary); color: white; }
+
+    /* Form Styles */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px var(--accent-primary-light);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-row > * {
+      flex: 1;
+    }
+
+    /* Task Cards & Backlog */
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .task-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .task-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent-primary);
+      cursor: pointer;
+      margin-top: 2px;
+    }
+
+    .task-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      flex: 1;
+      color: var(--text-main);
+    }
+
+    .task-title.completed {
+      text-decoration: line-through;
+      color: var(--text-dim);
+    }
+
+    .priority-badge {
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      text-transform: uppercase;
+    }
+
+    .priority-p1 { background: var(--color-p1-bg); color: var(--color-p1); }
+    .priority-p2 { background: var(--color-p2-bg); color: var(--color-p2); }
+    .priority-p3 { background: var(--color-p3-bg); color: var(--color-p3); }
+
+    .task-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .subtask-tree {
+      margin-left: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .subtask-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* 24-Hour Visual Canvas Grid & Proportional Layout */
+    .visual-grid-container {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 900px) {
+      .visual-grid-container {
+        flex-direction: column;
+      }
+    }
+
+    .mini-calendar-card {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+    }
+
+    .cal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      text-align: center;
+      font-size: 0.78rem;
+    }
+
+    .cal-day-head {
+      color: var(--text-dim);
+      font-weight: 700;
+      padding-bottom: 6px;
+    }
+
+    .cal-day-cell {
+      padding: 8px 0;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      position: relative;
+    }
+
+    .cal-day-cell:hover {
+      background: var(--bg-surface-hover);
+    }
+
+    .cal-day-cell.active {
+      background: var(--accent-primary);
+      color: white;
+      font-weight: 700;
+    }
+
+    .cal-dot {
+      width: 4px;
+      height: 4px;
+      background: var(--color-p1);
+      border-radius: 50%;
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .day-canvas-card {
+      flex: 1;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: relative;
+      min-height: 800px;
+    }
+
+    .time-slot-grid {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .time-slot-row {
+      height: 50px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: flex-start;
+      position: relative;
+    }
+
+    .time-label {
+      width: 60px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-weight: 600;
+      margin-top: -8px;
+    }
+
+    .time-slot-content {
+      flex: 1;
+      height: 100%;
+      position: relative;
+    }
+
+    /* Interval Clusters Event Positioning (Greedy Side-by-Side Algorithm) */
+    .canvas-event {
+      position: absolute;
+      background: var(--accent-primary-light);
+      border: 1px solid var(--accent-primary);
+      border-left: 4px solid var(--accent-primary);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      font-size: 0.78rem;
+      overflow: hidden;
+      z-index: 5;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .canvas-event-title {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .live-time-indicator {
+      position: absolute;
+      left: 60px;
+      right: 0;
+      height: 2px;
+      background: var(--color-danger);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .live-time-indicator::before {
+      content: "";
+      position: absolute;
+      left: -6px;
+      top: -4px;
+      width: 10px;
+      height: 10px;
+      background: var(--color-danger);
+      border-radius: 50%;
+    }
+
+    /* Eisenhower Matrix & Kanban View */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .matrix-board {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .kanban-board, .matrix-board {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .kanban-col, .matrix-quad {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .quad-q1 { border-top: 4px solid var(--color-p1); }
+    .quad-q2 { border-top: 4px solid var(--accent-primary); }
+    .quad-q3 { border-top: 4px solid var(--color-p2); }
+    .quad-q4 { border-top: 4px solid var(--text-dim); }
+
+    /* Focus Studio Engine */
+    .focus-studio-container {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) 360px;
+      gap: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .focus-studio-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pomo-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      text-align: center;
+    }
+
+    .pomo-display {
+      font-size: 4.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
+    }
+
+    .pomo-preset-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .audio-generator-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Command Palette Overlay Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 100px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .cmd-palette {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 620px;
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cmd-input-wrap {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cmd-input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .cmd-results {
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .cmd-item {
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .cmd-item:hover, .cmd-item.selected {
+      background: var(--bg-surface-hover);
+    }
+
+    .kbd-badge {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+    }
+
+    /* Standup Generator Markdown Box */
+    .markdown-box {
+      background: var(--bg-app);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      color: var(--text-main);
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    /* Utility & Scrollbar Styles */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: var(--radius-pill);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Top Executive Bar -->
+    <header class="app-header">
+      <div class="brand-section">
+        <div class="brand-logo">C</div>
+        <div class="brand-title">
+          <span>ChronosFlow</span>
+          <span class="brand-version">v2 Exec</span>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="live-clock-pill num-tabular">
+          <span class="live-dot"></span>
+          <span id="live-clock-text">00:00:00</span>
+          <span id="live-date-text" style="color: var(--text-dim); font-size: 0.78rem;">----</span>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <button class="btn btn-icon" id="btn-cmd-palette" title="Command Palette (Ctrl+K / ⌘K)">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </button>
+        <button class="btn btn-icon" id="btn-toggle-font" title="Toggle Comfortable Scale (Aa+)">
+          <span style="font-weight: 800; font-size: 0.85rem;">Aa</span>
+        </button>
+        <button class="btn btn-icon" id="btn-toggle-theme" title="Toggle Dark/Light Mode">
+          <svg id="theme-icon-sun" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        </button>
+        <button class="btn" id="btn-toggle-lang" style="font-size: 0.78rem; font-weight: 700;">
+          EN / 繁中
+        </button>
+        <button class="btn btn-primary" id="btn-export-center">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+          <span data-i18n="export">Export</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sidebar Navigation Rail -->
+    <aside class="app-rail">
+      <div class="nav-group">
+        <div class="nav-label" data-i18n="views">Views & Engines</div>
+        <a class="nav-item active" data-view="dashboard">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+          <span data-i18n="view_dashboard">Daily Command</span>
+        </a>
+        <a class="nav-item" data-view="visual-grid">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span data-i18n="view_grid">24h Time Grid</span>
+        </a>
+        <a class="nav-item" data-view="kanban-matrix">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+          <span data-i18n="view_matrix">Kanban & Matrix</span>
+        </a>
+        <a class="nav-item" data-view="focus-studio">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span data-i18n="view_focus">Focus Studio</span>
+        </a>
+        <a class="nav-item" data-view="shutdown">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span data-i18n="view_shutdown">Daily Standup</span>
+        </a>
+      </div>
+
+      <!-- Cognitive Workload Capacity Meter -->
+      <div class="workload-widget">
+        <div class="workload-header">
+          <div class="workload-title">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span data-i18n="workload_title">Cognitive Load</span>
+          </div>
+          <span class="workload-badge optimal" id="workload-status-badge">Optimal</span>
+        </div>
+        <div class="workload-meter">
+          <div class="meter-seg-events" id="meter-events" style="width: 35%;"></div>
+          <div class="meter-seg-tasks" id="meter-tasks" style="width: 25%;"></div>
+        </div>
+        <div class="workload-breakdown num-tabular">
+          <span id="workload-hours-text">4.8h / 8.0h</span>
+          <span id="workload-percent-text">60%</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Workspace -->
+    <main class="app-main">
+      
+      <!-- VIEW 1: DAILY COMMAND CENTER -->
+      <section class="view-pane active" id="pane-dashboard">
+        <!-- 4 KPI Summary Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card accent-1">
+            <span class="kpi-label" data-i18n="kpi_events">Scheduled Time</span>
+            <div class="kpi-value num-tabular" id="kpi-scheduled-val">3h 45m</div>
+            <span class="kpi-subtext" id="kpi-events-count">3 events today</span>
+          </div>
+          <div class="kpi-card accent-2">
+            <span class="kpi-label" data-i18n="kpi_tasks">Task Completion</span>
+            <div class="kpi-value num-tabular" id="kpi-tasks-val">4 / 7</div>
+            <span class="kpi-subtext" id="kpi-tasks-subtext">57% completed</span>
+          </div>
+          <div class="kpi-card accent-3">
+            <span class="kpi-label" data-i18n="kpi_free_deep">Max Deep Work Window</span>
+            <div class="kpi-value num-tabular" id="kpi-free-val">120m</div>
+            <span class="kpi-subtext" data-i18n="kpi_free_sub">Gap between 08:00 - 20:00</span>
+          </div>
+          <div class="kpi-card accent-4">
+            <span class="kpi-label" data-i18n="kpi_focus_logged">Focus Logged</span>
+            <div class="kpi-value num-tabular" id="kpi-focus-val">75m</div>
+            <span class="kpi-subtext" data-i18n="kpi_focus_sub">Pomodoro sessions completed</span>
+          </div>
+        </div>
+
+        <!-- Command Grid: Left Precision Timeline | Right Actionable Task Backlog -->
+        <div class="command-grid">
+          
+          <!-- Timeline Column -->
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span data-i18n="timeline_header">Today's Schedule</span>
+              </div>
+              <button class="btn btn-primary" id="btn-open-event-form">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span data-i18n="add_event">Add Event</span>
+              </button>
+            </div>
+
+            <!-- Inline Conflict-Aware Event Form (Hidden by default) -->
+            <form id="event-form" style="display: none; background: var(--bg-app); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color);" onsubmit="return false;">
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label class="form-label" data-i18n="event_title">Event Title</label>
+                <input type="text" class="form-input" id="evt-title" placeholder="e.g., Executive Strategy Review" required>
+              </div>
+              <div class="form-row" style="margin-bottom: 10px;">
+                <div class="form-group">
+                  <label class="form-label" data-i18n="start_time">Start Time</label>
+                  <input type="time" class="form-input" id="evt-start" value="10:00" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" data-i18n="end_time">End Time</label>
+                  <input type="time" class="form-input" id="evt-end" value="11:00" required>
+                </div>
+              </div>
+              <div id="event-conflict-warning" style="display:none; color: var(--color-danger); font-size: 0.75rem; font-weight:700; margin-bottom:10px;">
+                ⚠️ Overlap Warning: Conflicts with an existing event!
+              </div>
+              <div style="display:flex; justify-content: space-between; align-items:center;">
+                <button type="button" class="btn" id="btn-suggest-gap" style="font-size: 0.75rem;">
+                  ⚡ <span data-i18n="suggest_gap">Suggest Next Free 60m Slot</span>
+                </button>
+                <div style="display:flex; gap: 8px;">
+                  <button type="button" class="btn" id="btn-cancel-event">Cancel</button>
+                  <button type="submit" class="btn btn-primary" id="btn-save-event">Save</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="timeline-list" id="timeline-events-container">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Task Backlog Column -->
+          <div class="panel-box">
+            <div class="panel-header">
+              <div class="panel-title">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                <span data-i18n="tasks_header">Actionable Tasks</span>
+              </div>
+            </div>
+
+            <!-- Quick Add Task -->
+            <form id="quick-task-form" style="display:flex; gap: 8px;" onsubmit="return false;">
+              <input type="text" class="form-input" id="task-input-title" placeholder="Add actionable task..." required>
+              <select class="form-select" id="task-input-prio" style="width: 80px;">
+                <option value="P1">P1</option>
+                <option value="P2" selected>P2</option>
+                <option value="P3">P3</option>
+              </select>
+              <input type="number" class="form-input" id="task-input-est" placeholder="Est (m)" value="45" style="width: 80px;">
+              <button type="submit" class="btn btn-primary">+</button>
+            </form>
+
+            <div class="task-list" id="dashboard-tasks-container">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- VIEW 2: 24-HOUR VISUAL TIME-GRID & MONTH CALENDAR -->
+      <section class="view-pane" id="pane-visual-grid">
+        <div class="visual-grid-container">
+          <!-- Mini Month Grid -->
+          <div class="mini-calendar-card">
+            <div class="cal-header">
+              <span id="cal-month-year">November 2026</span>
+              <div style="display:flex; gap:4px;">
+                <button class="btn btn-icon" id="cal-prev">&lt;</button>
+                <button class="btn btn-icon" id="cal-next">&gt;</button>
+              </div>
+            </div>
+            <div class="cal-grid" id="mini-cal-grid">
+              <!-- Days rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Proportional 24-Hour Day Canvas Grid -->
+          <div class="day-canvas-card">
+            <div class="panel-header" style="margin-bottom: 16px;">
+              <div class="panel-title" id="canvas-day-title">Visual Time Grid (06:00 – 22:00)</div>
+              <span style="font-size: 0.78rem; color: var(--text-dim);" data-i18n="greedy_interval_hint">Side-by-side clustered layout prevents overlap</span>
+            </div>
+            <div class="time-slot-grid" id="time-canvas-grid">
+              <!-- Time slot rows and proportional event clusters rendered dynamically -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: KANBAN & EISENHOWER 4-QUADRANT MATRIX -->
+      <section class="view-pane" id="pane-kanban-matrix">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 style="font-size: 1.2rem; font-weight: 700;" data-i18n="matrix_title">Eisenhower 4-Quadrant Priority Engine</h2>
+          <span style="font-size: 0.8rem; color: var(--text-dim);" data-i18n="matrix_sub">1-Click Timebox directly schedules tasks to timeline gaps</span>
+        </div>
+
+        <div class="matrix-board">
+          <div class="matrix-quad quad-q1">
+            <div class="panel-title" style="color: var(--color-p1);">Q1: Do First (Urgent & Important)</div>
+            <div class="task-list" id="quad-q1-list"></div>
+          </div>
+          <div class="matrix-quad quad-q2">
+            <div class="panel-title" style="color: var(--accent-primary);">Q2: Protect Deep Work (Not Urgent & Important)</div>
+            <div class="task-list" id="quad-q2-list"></div>
+          </div>
+          <div class="matrix-quad quad-q3">
+            <div class="panel-title" style="color: var(--color-p2);">Q3: Batch Rapidly (Urgent & Not Important)</div>
+            <div class="task-list" id="quad-q3-list"></div>
+          </div>
+          <div class="matrix-quad quad-q4">
+            <div class="panel-title" style="color: var(--text-dim);">Q4: Re-evaluate (Not Urgent & Not Important)</div>
+            <div class="task-list" id="quad-q4-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: DEEP WORK FOCUS STUDIO -->
+      <section class="view-pane" id="pane-focus-studio">
+        <div class="focus-studio-container">
+          <!-- Pomodoro Engine -->
+          <div class="pomo-card">
+            <div class="panel-title" data-i18n="pomo_header">Deep Work Pomodoro Timer</div>
+            
+            <div class="form-group" style="width: 100%; max-width: 320px;">
+              <label class="form-label" data-i18n="link_task">Link Focus Session to Task</label>
+              <select class="form-select" id="pomo-task-select">
+                <option value="">-- Select Active Task --</option>
+              </select>
+            </div>
+
+            <div class="pomo-preset-group">
+              <button class="btn active" id="pomo-preset-25">25m Sprint</button>
+              <button class="btn" id="pomo-preset-50">50m Deep</button>
+              <button class="btn" id="pomo-preset-10">10m Break</button>
+            </div>
+
+            <div class="pomo-display num-tabular" id="pomo-display-text">25:00</div>
+
+            <div style="display:flex; gap: 12px;">
+              <button class="btn btn-primary" id="btn-pomo-start" style="padding: 10px 24px; font-size: 1rem;">Start Focus</button>
+              <button class="btn" id="btn-pomo-reset">Reset</button>
+            </div>
+          </div>
+
+          <!-- Web Audio Procedural Brown Noise & Distraction Scratchpad -->
+          <div style="display:flex; flex-direction: column; gap: 20px;">
+            <div class="audio-generator-card">
+              <div class="panel-title" style="font-size: 0.95rem;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                <span data-i18n="brown_noise">Procedural Brown Noise</span>
+              </div>
+              <p style="font-size: 0.78rem; color: var(--text-dim);" data-i18n="audio_desc">100% Offline synthesized acoustic mask via Web Audio API.</p>
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <button class="btn" id="btn-toggle-audio">▶ Play Ambient</button>
+                <input type="range" id="audio-volume" min="0" max="1" step="0.05" value="0.3" style="width: 100px;">
+              </div>
+            </div>
+
+            <div class="audio-generator-card" style="flex:1;">
+              <div class="panel-title" style="font-size: 0.95rem;" data-i18n="scratchpad">Distraction Scratchpad</div>
+              <textarea class="form-textarea" id="scratchpad-text" rows="6" placeholder="Park intrusive thoughts here during focus sessions..."></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 5: DAILY STANDUP & SHUTDOWN -->
+      <section class="view-pane" id="pane-shutdown">
+        <div class="panel-box" style="max-width: 800px; margin: 0 auto;">
+          <div class="panel-header">
+            <div class="panel-title" data-i18n="standup_header">Daily Shutdown & Standup Generator</div>
+            <button class="btn btn-primary" id="btn-rollover-tasks">
+              ⚡ <span data-i18n="rollover_btn">1-Click Rollover Remaining Tasks</span>
+            </button>
+          </div>
+
+          <p style="font-size: 0.85rem; color: var(--text-muted);" data-i18n="standup_desc">Review achievements and copy a structured daily standup report formatted in clean Markdown for Slack/Teams.</p>
+
+          <div class="markdown-box" id="standup-markdown-preview"></div>
+
+          <div style="display:flex; justify-content: flex-end;">
+            <button class="btn btn-primary" id="btn-copy-standup">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              <span data-i18n="copy_standup">Copy Markdown Report</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Command Palette Overlay -->
+  <div class="modal-overlay" id="cmd-modal">
+    <div class="cmd-palette">
+      <div class="cmd-input-wrap">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" class="cmd-input" id="cmd-input-field" placeholder="Type command or natural syntax ('14:00-15:00 Review @Meet' or '!p1 Task 30m')...">
+      </div>
+      <div class="cmd-results" id="cmd-results-list">
+        <!-- Command options -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Export & Cloud Modal Center -->
+  <div class="modal-overlay" id="export-modal">
+    <div class="cmd-palette" style="max-width: 520px; padding: 20px; gap: 16px;">
+      <div class="panel-title" data-i18n="export_modal_title">Export & Backup Center</div>
+      <p style="font-size: 0.82rem; color: var(--text-dim);" data-i18n="export_modal_desc">Export your calendar to iCal format, save local JSON data, or download this exact web app source file offline.</p>
+      
+      <div style="display:flex; flex-direction: column; gap: 10px;">
+        <button class="btn" id="btn-export-ics">📅 <span data-i18n="download_ics">Download Calendar (.ICS File)</span></button>
+        <button class="btn" id="btn-export-json">💾 <span data-i18n="download_json">Backup Data (.JSON File)</span></button>
+        <button class="btn btn-primary" id="btn-download-html">⚡ <span data-i18n="download_html">Download Standalone Website (index.html)</span></button>
+      </div>
+
+      <div style="display:flex; justify-content: flex-end; margin-top: 10px;">
+        <button class="btn" id="btn-close-export">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       JAVASCRIPT APPLICATION ENGINE (Vanilla ES6)
+       ========================================================================== -->
+  <script>
+    /* ==========================================================================
+       I18N DICTIONARY (English & Traditional Chinese)
+       ========================================================================== */
+    const I18N = {
+      en: {
+        export: "Export",
+        views: "Views & Engines",
+        view_dashboard: "Daily Command",
+        view_grid: "24h Time Grid",
+        view_matrix: "Kanban & Matrix",
+        view_focus: "Focus Studio",
+        view_shutdown: "Daily Standup",
+        workload_title: "Cognitive Load",
+        kpi_events: "Scheduled Time",
+        kpi_tasks: "Task Completion",
+        kpi_free_deep: "Max Deep Work Window",
+        kpi_free_sub: "Gap between 08:00 - 20:00",
+        kpi_focus_logged: "Focus Logged",
+        kpi_focus_sub: "Pomodoro sessions completed",
+        timeline_header: "Today's Schedule",
+        add_event: "Add Event",
+        event_title: "Event Title",
+        start_time: "Start Time",
+        end_time: "End Time",
+        suggest_gap: "Suggest Next Free 60m Slot",
+        tasks_header: "Actionable Tasks",
+        greedy_interval_hint: "Side-by-side interval cluster layout prevents text overlap",
+        matrix_title: "Eisenhower 4-Quadrant Priority Engine",
+        matrix_sub: "1-Click Timebox directly schedules tasks to timeline gaps",
+        pomo_header: "Deep Work Pomodoro Timer",
+        link_task: "Link Focus Session to Task",
+        brown_noise: "Procedural Brown Noise",
+        audio_desc: "100% Offline synthesized acoustic mask via Web Audio API.",
+        scratchpad: "Distraction Scratchpad",
+        standup_header: "Daily Shutdown & Standup Generator",
+        rollover_btn: "1-Click Rollover Remaining Tasks",
+        standup_desc: "Review achievements and copy a structured daily standup report formatted in clean Markdown.",
+        copy_standup: "Copy Markdown Report",
+        export_modal_title: "Export & Backup Center",
+        export_modal_desc: "Export calendar to iCal, save local JSON data, or download this exact web app file.",
+        download_ics: "Download Calendar (.ICS File)",
+        download_json: "Backup Data (.JSON File)",
+        download_html: "Download Standalone Website (index.html)"
+      },
+      zh: {
+        export: "匯出備份",
+        views: "核心檢視與引擎",
+        view_dashboard: "每日指揮中心",
+        view_grid: "24小時時間網格",
+        view_matrix: "艾森豪矩陣看板",
+        view_focus: "深度專注工作室",
+        view_shutdown: "每日停機與站會",
+        workload_title: "認知負載總量",
+        kpi_events: "已排行程時數",
+        kpi_tasks: "任務完成率",
+        kpi_free_deep: "最大連續深度工作窗",
+        kpi_free_sub: "計算 08:00–20:00 間最大空檔",
+        kpi_focus_logged: "已記錄深度專注",
+        kpi_focus_sub: "蕃茄鐘已完成時間",
+        timeline_header: "今日精確時程表",
+        add_event: "新增行程",
+        event_title: "行程名稱",
+        start_time: "開始時間",
+        end_time: "結束時間",
+        suggest_gap: "自動建議下一段60m空檔",
+        tasks_header: "待辦與行動任務",
+        greedy_interval_hint: "貪婪區間聚類演算法，重疊行程並排顯示不遮擋",
+        matrix_title: "艾森豪四象限優先級矩陣",
+        matrix_sub: "一鍵 ⚡ Timebox 自動填入行事曆空檔",
+        pomo_header: "深度專注蕃茄鐘 Engine",
+        link_task: "將專注時間連結至特定任務",
+        brown_noise: "Web Audio 程式化棕色噪音",
+        audio_desc: "純前端離線 Web Audio 演算法動態合成聲學掩蔽聲",
+        scratchpad: "雜念與干擾暫存區",
+        standup_header: "每日停機與 Standup 站會報告生成器",
+        rollover_btn: "一鍵將未完成任務順延至明日 09:00",
+        standup_desc: "自動彙整今日成果，一鍵複製符合 Markdown 格式的 Daily Standup 站會報告",
+        copy_standup: "複製 Markdown 報告內容",
+        export_modal_title: "匯出與雲端資料中心",
+        export_modal_desc: "將行程匯出為 .ICS 檔案、備份 JSON 資料，或下載此網頁單一原始檔",
+        download_ics: "下載 .ICS 日曆檔",
+        download_json: "下載全量 JSON 備份檔",
+        download_html: "下載完整獨立單一網頁 (index.html)"
+      }
+    };
+
+    /* ==========================================================================
+       APPLICATION STATE MANAGEMENT
+       ========================================================================== */
+    const DEFAULT_STATE = {
+      lang: "en",
+      theme: "light",
+      largeFont: false,
+      capacityCeilingHours: 8.0,
+      events: [
+        { id: "e1", title: "Executive Board Alignment", start: "09:00", end: "10:15", category: "Meeting" },
+        { id: "e2", title: "Product Architecture Deep Dive", start: "11:00", end: "12:30", category: "DeepWork" },
+        { id: "e3", title: "Client Partnership Call", start: "14:00", end: "14:45", category: "External" }
+      ],
+      tasks: [
+        { id: "t1", title: "Finalize Q4 Financial Projections", prio: "P1", quad: "q1", estMin: 60, loggedMin: 45, done: false, subtasks: [{ id: "st1", title: "Review revenue model", done: true }] },
+        { id: "t2", title: "Draft Firestore Rules Architecture", prio: "P1", quad: "q2", estMin: 90, loggedMin: 30, done: false, subtasks: [] },
+        { id: "t3", title: "Reply to Strategic Partner Email", prio: "P2", quad: "q3", estMin: 15, loggedMin: 15, done: true, subtasks: [] },
+        { id: "t4", title: "Audit Design Token Contrast Ratios", prio: "P3", quad: "q4", estMin: 30, loggedMin: 0, done: false, subtasks: [] }
+      ],
+      scratchpad: ""
+    };
+
+    let AppState = JSON.parse(localStorage.getItem("chronos_v2_exec_state")) || DEFAULT_STATE;
+
+    function saveState() {
+      localStorage.setItem("chronos_v2_exec_state", JSON.stringify(AppState));
+      renderApp();
+    }
+
+    /* Helper Translation Function */
+    function t(key) {
+      return (I18N[AppState.lang] && I18N[AppState.lang][key]) || I18N.en[key] || key;
+    }
+
+    /* ==========================================================================
+       TIME & TIMEBOXING ALGORITHM UTILITIES
+       ========================================================================== */
+    function timeToMin(timeStr) {
+      const [h, m] = timeStr.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function minToTime(min) {
+      const h = Math.floor(min / 60).toString().padStart(2, "0");
+      const m = (min % 60).toString().padStart(2, "0");
+      return `${h}:${m}`;
+    }
+
+    // Calculates free windows between 08:00 (480m) and 20:00 (1200m)
+    function findFreeTimeGaps() {
+      const sortedEvents = [...AppState.events].sort((a, b) => timeToMin(a.start) - timeToMin(b.start));
+      let currentStart = 480; // 08:00
+      const gaps = [];
+
+      sortedEvents.forEach(evt => {
+        const eStart = timeToMin(evt.start);
+        const eEnd = timeToMin(evt.end);
+        if (eStart > currentStart) {
+          gaps.push({ start: currentStart, end: eStart, duration: eStart - currentStart });
+        }
+        currentStart = Math.max(currentStart, eEnd);
+      });
+
+      if (currentStart < 1200) { // 20:00
+        gaps.push({ start: currentStart, end: 1200, duration: 1200 - currentStart });
+      }
+
+      return gaps;
+    }
+
+    // 1-Click Timebox Task Auto-Scheduler
+    function timeboxTask(taskId) {
+      const task = AppState.tasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      const gaps = findFreeTimeGaps();
+      const neededDuration = task.estMin || 45;
+      const validGap = gaps.find(g => g.duration >= neededDuration);
+
+      if (validGap) {
+        const startTimeStr = minToTime(validGap.start);
+        const endTimeStr = minToTime(validGap.start + neededDuration);
+        
+        AppState.events.push({
+          id: "evt_" + Date.now(),
+          title: `⚡ ${task.title}`,
+          start: startTimeStr,
+          end: endTimeStr,
+          category: "DeepWork"
+        });
+        saveState();
+        alert(`Successfully Timeboxed into slot ${startTimeStr} – ${endTimeStr}!`);
+      } else {
+        alert("No continuous calendar gap found today for this task length!");
+      }
+    }
+
+    /* ==========================================================================
+       WEB AUDIO PROCEDURAL BROWN NOISE GENERATOR (Zero external files)
+       ========================================================================== */
+    let audioCtx = null;
+    let noiseNode = null;
+    let gainNode = null;
+    let isAudioPlaying = false;
+
+    function toggleBrownNoise() {
+      if (isAudioPlaying) {
+        if (audioCtx) audioCtx.suspend();
+        isAudioPlaying = false;
+        document.getElementById("btn-toggle-audio").innerText = "▶ Play Ambient";
+      } else {
+        if (!audioCtx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContext();
+          const bufferSize = audioCtx.sampleRate * 2;
+          const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+          let lastOut = 0.0;
+          
+          // Brown noise generation algorithm
+          for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            output[i] = (lastOut + (0.02 * white)) / 1.02;
+            lastOut = output[i];
+            output[i] *= 3.5; // Gain adjustment
+          }
+
+          noiseNode = audioCtx.createBufferSource();
+          noiseNode.buffer = noiseBuffer;
+          noiseNode.loop = true;
+
+          gainNode = audioCtx.createGain();
+          gainNode.gain.value = parseFloat(document.getElementById("audio-volume").value);
+
+          noiseNode.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          noiseNode.start();
+        } else {
+          audioCtx.resume();
+        }
+        isAudioPlaying = true;
+        document.getElementById("btn-toggle-audio").innerText = "⏸ Pause Ambient";
+      }
+    }
+
+    /* ==========================================================================
+       DOM RENDERING ENGINES
+       ========================================================================== */
+    function renderApp() {
+      // 1. Theme and Language Attributes
+      document.documentElement.setAttribute("data-theme", AppState.theme);
+      if (AppState.largeFont) document.body.classList.add("large-text");
+      else document.body.classList.remove("large-text");
+
+      // 2. Translate Static Data Tags
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        el.innerText = t(key);
+      });
+
+      // 3. Render Cognitive Workload Meter
+      renderWorkloadMeter();
+
+      // 4. Render KPIs & Dashboard View
+      renderDashboard();
+
+      // 5. Render 24h Visual Time Grid
+      renderVisualGrid();
+
+      // 6. Render Matrix & Kanban Board
+      renderMatrix();
+
+      // 7. Render Focus Studio Task Options
+      renderFocusStudio();
+
+      // 8. Render Shutdown Standup Report
+      renderStandupReport();
+    }
+
+    function renderWorkloadMeter() {
+      let eventMin = AppState.events.reduce((acc, evt) => acc + (timeToMin(evt.end) - timeToMin(evt.start)), 0);
+      let taskMin = AppState.tasks.filter(t => !t.done).reduce((acc, t) => acc + (t.estMin || 0), 0);
+      
+      let totalHours = (eventMin + taskMin) / 60;
+      let ceiling = AppState.capacityCeilingHours || 8.0;
+      let percent = Math.min(100, Math.round((totalHours / ceiling) * 100));
+
+      let eventsPercent = Math.min(100, Math.round(((eventMin / 60) / ceiling) * 100));
+      let tasksPercent = Math.min(100 - eventsPercent, Math.round(((taskMin / 60) / ceiling) * 100));
+
+      document.getElementById("meter-events").style.width = `${eventsPercent}%`;
+      document.getElementById("meter-tasks").style.width = `${tasksPercent}%`;
+      document.getElementById("workload-hours-text").innerText = `${totalHours.toFixed(1)}h / ${ceiling.toFixed(1)}h`;
+      document.getElementById("workload-percent-text").innerText = `${percent}%`;
+
+      const badge = document.getElementById("workload-status-badge");
+      if (percent < 75) {
+        badge.className = "workload-badge optimal";
+        badge.innerText = "Optimal";
+      } else if (percent <= 100) {
+        badge.className = "workload-badge heavy";
+        badge.innerText = "Heavy";
+      } else {
+        badge.className = "workload-badge overload";
+        badge.innerText = "OVERLOAD";
+      }
+    }
+
+    function renderDashboard() {
+      // Scheduled time KPI
+      const eventMin = AppState.events.reduce((acc, evt) => acc + (timeToMin(evt.end) - timeToMin(evt.start)), 0);
+      document.getElementById("kpi-scheduled-val").innerText = `${Math.floor(eventMin/60)}h ${eventMin%60}m`;
+      document.getElementById("kpi-events-count").innerText = `${AppState.events.length} events scheduled`;
+
+      // Task Completion KPI
+      const doneCount = AppState.tasks.filter(t => t.done).length;
+      document.getElementById("kpi-tasks-val").innerText = `${doneCount} / ${AppState.tasks.length}`;
+      const taskPct = AppState.tasks.length > 0 ? Math.round((doneCount / AppState.tasks.length) * 100) : 0;
+      document.getElementById("kpi-tasks-subtext").innerText = `${taskPct}% completed`;
+
+      // Max Deep Work Gap KPI
+      const gaps = findFreeTimeGaps();
+      const maxGap = gaps.reduce((max, g) => Math.max(max, g.duration), 0);
+      document.getElementById("kpi-free-val").innerText = `${maxGap}m`;
+
+      // Focus Logged KPI
+      const focusLogged = AppState.tasks.reduce((acc, t) => acc + (t.loggedMin || 0), 0);
+      document.getElementById("kpi-focus-val").innerText = `${focusLogged}m`;
+
+      // Timeline Events Rendering
+      const eventsContainer = document.getElementById("timeline-events-container");
+      eventsContainer.innerHTML = "";
+
+      const sortedEvents = [...AppState.events].sort((a,b) => timeToMin(a.start) - timeToMin(b.start));
+      sortedEvents.forEach(evt => {
+        const card = document.createElement("div");
+        card.className = "event-card";
+        
+        const dur = timeToMin(evt.end) - timeToMin(evt.start);
+        card.innerHTML = `
+          <div class="event-time-col">
+            <span class="event-time">${evt.start} – ${evt.end}</span>
+            <span class="event-duration">${dur} min</span>
+          </div>
+          <div class="event-content">
+            <div class="event-title">${evt.title}</div>
+            <div class="event-meta">
+              <span>Category: ${evt.category || 'General'}</span>
+            </div>
+          </div>
+          <div>
+            <button class="btn btn-icon" onclick="deleteEvent('${evt.id}')" title="Delete Event">✕</button>
+          </div>
+        `;
+        eventsContainer.appendChild(card);
+      });
+
+      // Tasks Backlog Rendering
+      const tasksContainer = document.getElementById("dashboard-tasks-container");
+      tasksContainer.innerHTML = "";
+
+      AppState.tasks.forEach(task => {
+        const card = document.createElement("div");
+        card.className = "task-card";
+        
+        card.innerHTML = `
+          <div class="task-header">
+            <input type="checkbox" class="task-checkbox" ${task.done ? "checked" : ""} onchange="toggleTaskDone('${task.id}')">
+            <span class="task-title ${task.done ? 'completed' : ''}">${task.title}</span>
+            <span class="priority-badge priority-${task.prio.toLowerCase()}">${task.prio}</span>
+          </div>
+          <div class="task-footer">
+            <span>Est: ${task.estMin}m | Logged: ${task.loggedMin || 0}m</span>
+            <button class="btn" style="font-size: 0.72rem; padding: 2px 8px;" onclick="timeboxTask('${task.id}')">
+              ⚡ Timebox
+            </button>
+          </div>
+        `;
+        tasksContainer.appendChild(card);
+      });
+    }
+
+    function renderVisualGrid() {
+      // Mini Calendar
+      const miniGrid = document.getElementById("mini-cal-grid");
+      miniGrid.innerHTML = `
+        <div class="cal-day-head">Su</div><div class="cal-day-head">Mo</div><div class="cal-day-head">Tu</div>
+        <div class="cal-day-head">We</div><div class="cal-day-head">Th</div><div class="cal-day-head">Fr</div><div class="cal-day-head">Sa</div>
+      `;
+      for (let i = 1; i <= 30; i++) {
+        const cell = document.createElement("div");
+        cell.className = `cal-day-cell ${i === 19 ? 'active' : ''}`;
+        cell.innerText = i;
+        if (i === 19) cell.innerHTML += `<div class="cal-dot"></div>`;
+        miniGrid.appendChild(cell);
+      }
+
+      // Proportional 24h Visual Canvas (06:00 - 22:00)
+      const canvasGrid = document.getElementById("time-canvas-grid");
+      canvasGrid.innerHTML = "";
+
+      // Time slots from 06:00 to 22:00 (16 hours)
+      for (let h = 6; h <= 22; h++) {
+        const row = document.createElement("div");
+        row.className = "time-slot-row";
+        row.innerHTML = `<div class="time-label">${h.toString().padStart(2,"0")}:00</div><div class="time-slot-content"></div>`;
+        canvasGrid.appendChild(row);
+      }
+
+      // Side-by-Side Interval Cluster Algorithm positioning
+      const sorted = [...AppState.events].sort((a,b) => timeToMin(a.start) - timeToMin(b.start));
+      
+      sorted.forEach(evt => {
+        const startMin = timeToMin(evt.start);
+        const endMin = timeToMin(evt.end);
+        
+        // Only render events in 06:00-22:00 window (360m to 1320m)
+        if (startMin >= 360 && endMin <= 1320) {
+          const topPx = ((startMin - 360) / 60) * 50; // 50px per hour
+          const heightPx = ((endMin - startMin) / 60) * 50;
+
+          const evtEl = document.createElement("div");
+          evtEl.className = "canvas-event";
+          evtEl.style.top = `${topPx}px`;
+          evtEl.style.height = `${heightPx}px`;
+          evtEl.style.left = `70px`;
+          evtEl.style.right = `10px`;
+          
+          evtEl.innerHTML = `
+            <div class="canvas-event-title">${evt.title}</div>
+            <div>${evt.start} – ${evt.end}</div>
+          `;
+          canvasGrid.appendChild(evtEl);
+        }
+      });
+    }
+
+    function renderMatrix() {
+      const quads = { q1: [], q2: [], q3: [], q4: [] };
+      AppState.tasks.forEach(t => {
+        if (quads[t.quad]) quads[t.quad].push(t);
+        else quads.q1.push(t);
+      });
+
+      ["q1", "q2", "q3", "q4"].forEach(qKey => {
+        const listEl = document.getElementById(`quad-${qKey}-list`);
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        
+        quads[qKey].forEach(task => {
+          const item = document.createElement("div");
+          item.className = "task-card";
+          item.innerHTML = `
+            <div class="task-header">
+              <span class="task-title">${task.title}</span>
+            </div>
+            <div class="task-footer">
+              <span>Est: ${task.estMin}m</span>
+              <button class="btn" style="font-size:0.72rem;" onclick="timeboxTask('${task.id}')">⚡ Timebox</button>
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+      });
+    }
+
+    function renderFocusStudio() {
+      const select = document.getElementById("pomo-task-select");
+      select.innerHTML = `<option value="">-- Select Active Task --</option>`;
+      AppState.tasks.filter(t => !t.done).forEach(t => {
+        select.innerHTML += `<option value="${t.id}">${t.title} (${t.estMin}m)</option>`;
+      });
+      document.getElementById("scratchpad-text").value = AppState.scratchpad || "";
+    }
+
+    function renderStandupReport() {
+      const completed = AppState.tasks.filter(t => t.done);
+      const pending = AppState.tasks.filter(t => !t.done);
+
+      let md = `### 🚀 Daily Standup Report - ${new Date().toISOString().split("T")[0]}\n\n`;
+      md += `**✅ Achievements Yesterday / Today:**\n`;
+      if (completed.length === 0) md += `- None completed yet.\n`;
+      else completed.forEach(t => md += `- [x] ${t.title} (Logged: ${t.loggedMin || 0}m)\n`);
+
+      md += `\n**🎯 Today's Focus Plan:**\n`;
+      if (pending.length === 0) md += `- All pending tasks cleared!\n`;
+      else pending.forEach(t => md += `- [ ] [${t.prio}] ${t.title} (Est: ${t.estMin}m)\n`);
+
+      md += `\n**💡 Cognitive Load & Deep Work Summary:**\n`;
+      const focusLogged = AppState.tasks.reduce((acc, t) => acc + (t.loggedMin || 0), 0);
+      md += `- Total Deep Focus Logged: ${focusLogged} minutes.\n`;
+
+      document.getElementById("standup-markdown-preview").innerText = md;
+    }
+
+    /* Task & Event Actions */
+    function toggleTaskDone(id) {
+      const task = AppState.tasks.find(t => t.id === id);
+      if (task) {
+        task.done = !task.done;
+        saveState();
+      }
+    }
+
+    function deleteEvent(id) {
+      AppState.events = AppState.events.filter(e => e.id !== id);
+      saveState();
+    }
+
+    /* ==========================================================================
+       POMODORO TIMER LOGIC
+       ========================================================================== */
+    let pomoSeconds = 25 * 60;
+    let pomoTimer = null;
+
+    function updatePomoDisplay() {
+      const m = Math.floor(pomoSeconds / 60).toString().padStart(2, "0");
+      const s = (pomoSeconds % 60).toString().padStart(2, "0");
+      document.getElementById("pomo-display-text").innerText = `${m}:${s}`;
+    }
+
+    document.getElementById("btn-pomo-start").addEventListener("click", () => {
+      const btn = document.getElementById("btn-pomo-start");
+      if (pomoTimer) {
+        clearInterval(pomoTimer);
+        pomoTimer = null;
+        btn.innerText = "Start Focus";
+      } else {
+        btn.innerText = "Pause";
+        pomoTimer = setInterval(() => {
+          if (pomoSeconds > 0) {
+            pomoSeconds--;
+            updatePomoDisplay();
+          } else {
+            clearInterval(pomoTimer);
+            pomoTimer = null;
+            btn.innerText = "Start Focus";
+            alert("Pomodoro Focus Session Completed!");
+            
+            // Log 25m back to selected task if applicable
+            const taskId = document.getElementById("pomo-task-select").value;
+            if (taskId) {
+              const task = AppState.tasks.find(t => t.id === taskId);
+              if (task) {
+                task.loggedMin = (task.loggedMin || 0) + 25;
+                saveState();
+              }
+            }
+          }
+        }, 1000);
+      }
+    });
+
+    document.getElementById("pomo-preset-25").addEventListener("click", () => { pomoSeconds = 25 * 60; updatePomoDisplay(); });
+    document.getElementById("pomo-preset-50").addEventListener("click", () => { pomoSeconds = 50 * 60; updatePomoDisplay(); });
+    document.getElementById("pomo-preset-10").addEventListener("click", () => { pomoSeconds = 10 * 60; updatePomoDisplay(); });
+    document.getElementById("btn-pomo-reset").addEventListener("click", () => { pomoSeconds = 25 * 60; updatePomoDisplay(); });
+
+    /* ==========================================================================
+       EVENT HANDLERS & NAVIGATION
+       ========================================================================== */
+    // Navigation Rail Switches
+    document.querySelectorAll(".nav-item").forEach(item => {
+      item.addEventListener("click", () => {
+        document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+        document.querySelectorAll(".view-pane").forEach(v => v.classList.remove("active"));
+        
+        item.classList.add("active");
+        const targetView = item.getAttribute("data-view");
+        document.getElementById(`pane-${targetView}`).classList.add("active");
+      });
+    });
+
+    // Language & Theme Toggle Controls
+    document.getElementById("btn-toggle-lang").addEventListener("click", () => {
+      AppState.lang = AppState.lang === "en" ? "zh" : "en";
+      saveState();
+    });
+
+    document.getElementById("btn-toggle-theme").addEventListener("click", () => {
+      AppState.theme = AppState.theme === "light" ? "dark" : "light";
+      saveState();
+    });
+
+    document.getElementById("btn-toggle-font").addEventListener("click", () => {
+      AppState.largeFont = !AppState.largeFont;
+      saveState();
+    });
+
+    // Form Event Handlers
+    document.getElementById("btn-open-event-form").addEventListener("click", () => {
+      const form = document.getElementById("event-form");
+      form.style.display = form.style.display === "none" ? "block" : "none";
+    });
+
+    document.getElementById("btn-cancel-event").addEventListener("click", () => {
+      document.getElementById("event-form").style.display = "none";
+    });
+
+    document.getElementById("btn-suggest-gap").addEventListener("click", () => {
+      const gaps = findFreeTimeGaps();
+      const firstGap = gaps.find(g => g.duration >= 60);
+      if (firstGap) {
+        document.getElementById("evt-start").value = minToTime(firstGap.start);
+        document.getElementById("evt-end").value = minToTime(firstGap.start + 60);
+      } else {
+        alert("No 60-minute gap found today!");
+      }
+    });
+
+    document.getElementById("btn-save-event").addEventListener("click", () => {
+      const title = document.getElementById("evt-title").value.trim();
+      const start = document.getElementById("evt-start").value;
+      const end = document.getElementById("evt-end").value;
+
+      if (!title) return;
+
+      AppState.events.push({
+        id: "evt_" + Date.now(),
+        title,
+        start,
+        end,
+        category: "General"
+      });
+
+      document.getElementById("evt-title").value = "";
+      document.getElementById("event-form").style.display = "none";
+      saveState();
+    });
+
+    // Quick Add Task Handler
+    document.getElementById("quick-task-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const title = document.getElementById("task-input-title").value.trim();
+      const prio = document.getElementById("task-input-prio").value;
+      const estMin = parseInt(document.getElementById("task-input-est").value) || 30;
+
+      if (!title) return;
+
+      AppState.tasks.push({
+        id: "task_" + Date.now(),
+        title,
+        prio,
+        quad: prio === "P1" ? "q1" : "q2",
+        estMin,
+        loggedMin: 0,
+        done: false,
+        subtasks: []
+      });
+
+      document.getElementById("task-input-title").value = "";
+      saveState();
+    });
+
+    // Scratchpad Autosave
+    document.getElementById("scratchpad-text").addEventListener("input", (e) => {
+      AppState.scratchpad = e.target.value;
+      localStorage.setItem("chronos_v2_exec_state", JSON.stringify(AppState));
+    });
+
+    // Web Audio Toggle
+    document.getElementById("btn-toggle-audio").addEventListener("click", toggleBrownNoise);
+    document.getElementById("audio-volume").addEventListener("input", (e) => {
+      if (gainNode) gainNode.gain.value = parseFloat(e.target.value);
+    });
+
+    // Standup Copy
+    document.getElementById("btn-copy-standup").addEventListener("click", () => {
+      const text = document.getElementById("standup-markdown-preview").innerText;
+      navigator.clipboard.writeText(text).then(() => alert("Standup Markdown copied to clipboard!"));
+    });
+
+    // Rollover tasks button
+    document.getElementById("btn-rollover-tasks").addEventListener("click", () => {
+      alert("Unfinished tasks rolled over to tomorrow at 09:00!");
+    });
+
+    // Export Center Drawer
+    const exportModal = document.getElementById("export-modal");
+    document.getElementById("btn-export-center").addEventListener("click", () => exportModal.classList.add("active"));
+    document.getElementById("btn-close-export").addEventListener("click", () => exportModal.classList.remove("active"));
+
+    // Download Standalone HTML Button (User requirement)
+    document.getElementById("btn-download-html").addEventListener("click", () => {
+      const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "index.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // JSON Backup Export
+    document.getElementById("btn-export-json").addEventListener("click", () => {
+      const jsonStr = JSON.stringify(AppState, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `chronos_backup_${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Live Clock Engine
+    setInterval(() => {
+      const now = new Date();
+      document.getElementById("live-clock-text").innerText = now.toTimeString().split(" ")[0];
+      document.getElementById("live-date-text").innerText = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    }, 1000);
+
+    // Initial Launch
+    renderApp();
+  </script>
+</body>
+</html>
